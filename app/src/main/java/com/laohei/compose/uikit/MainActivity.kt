@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.laohei.compose.uicore.NotchedBottomBar
+import com.laohei.compose.uikit.ui.screen.MessageScreen
 import com.laohei.compose.uikit.ui.theme.Common_ui_kitTheme
 
 class MainActivity : ComponentActivity() {
@@ -32,7 +33,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             Common_ui_kitTheme {
-
+                MessageScreen()
             }
         }
     }
