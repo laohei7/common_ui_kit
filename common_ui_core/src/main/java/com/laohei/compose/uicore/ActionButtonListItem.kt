@@ -42,14 +42,16 @@ import kotlin.math.cbrt
 import kotlin.math.roundToInt
 import kotlin.math.sign
 
-private val PaddingLg = 16.dp
+private val PaddingSm = 8.dp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ActionButtonListItem(
     modifier: Modifier = Modifier,
-    actionSpace: Dp = PaddingLg,
+    actionHorizontalSpace: Dp = PaddingSm,
+    actionVerticalSpace: Dp = PaddingSm,
     actionAlignment: Alignment.Horizontal = Alignment.End,
+    thresholdFraction: Float = 0.15f,
     content: @Composable @UiComposable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -103,7 +105,7 @@ fun ActionButtonListItem(
                         }
                     },
                     onDragEnd = {
-                        val threshold = maxOffsetX * 0.08f
+                        val threshold = maxOffsetX * thresholdFraction
                         scope.launch {
                             val openThreshold =
                                 if (actionAlignment == Alignment.Start) threshold else -threshold
@@ -149,19 +151,20 @@ fun ActionButtonListItem(
         val listItemPlaceable = measurables.first().measure(constraints)
         val layoutWidth = listItemPlaceable.width
         val layoutHeight = listItemPlaceable.height
-        val actionSpacePx = actionSpace.roundToPx()
+        val actionHorizontalSpacePx = actionHorizontalSpace.roundToPx()
+        val actionVerticalSpacePx = actionVerticalSpace.roundToPx()
 
         val actionPlaceables =
             measurables.subList(1, measurables.size).map {
                 it.measure(
                     constraints.copy(
-                        minWidth = layoutHeight - actionSpacePx,
-                        maxWidth = layoutHeight - actionSpacePx
+                        minWidth = layoutHeight - actionVerticalSpacePx,
+                        maxWidth = layoutHeight - actionVerticalSpacePx
                     )
                 )
             }
         val actionTotalWidth =
-            actionPlaceables.sumOf { it.width } + actionSpacePx * (actionPlaceables.size + 1)
+            actionPlaceables.sumOf { it.width } + actionHorizontalSpacePx * (actionPlaceables.size + 1)
         if (maxOffsetX != actionTotalWidth.toFloat()) {
             maxOffsetX = actionTotalWidth.toFloat()
         }
@@ -184,9 +187,9 @@ fun ActionButtonListItem(
 
             actionPlaceables.forEachIndexed { index, placeable ->
                 val (minX, maxX) = if (actionAlignment == Alignment.Start) {
-                    0 to (actionSpacePx + placeable.width) * (index + 1)
+                    0 to (actionHorizontalSpacePx + placeable.width) * (index + 1)
                 } else {
-                    layoutWidth - (actionSpacePx + placeable.width) * (index + 1) to layoutWidth
+                    layoutWidth - (actionHorizontalSpacePx + placeable.width) * (index + 1) to layoutWidth
                 }
 
                 val progress = (abs(offsetX.value) / maxOffsetX).coerceAtLeast(0f)
@@ -219,7 +222,11 @@ fun ActionButtonListItem(
     }
 }
 
-fun applyDamping(offset: Float, maxOffset: Float, actionAlignment: Alignment.Horizontal): Float {
+private fun applyDamping(
+    offset: Float,
+    maxOffset: Float,
+    actionAlignment: Alignment.Horizontal
+): Float {
     val scale = 25f
     val (minBound, maxBound) = if (actionAlignment == Alignment.Start) {
         0f to maxOffset
