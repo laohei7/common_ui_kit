@@ -2,6 +2,8 @@ package com.laohei.compose.uikit.ui.screen
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,7 +31,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +46,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.laohei.compose.uicore.ActionButtonListItem
 import com.laohei.compose.uikit.R
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 private data class Message(
     @DrawableRes val face: Int,
@@ -46,11 +55,11 @@ private data class Message(
     val message: String
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalUuidApi::class)
 @Composable
 fun MessageScreen() {
     val messages = remember {
-        listOf(
+        val original = listOf(
             Message(R.drawable.user_1, "Rem", "Hi 486"),
             Message(R.drawable.user_2, "Emilia", "Hello 486"),
             Message(R.drawable.user_3, "Rem", "Hi 486"),
@@ -60,7 +69,21 @@ fun MessageScreen() {
             Message(R.drawable.user_7, "School girl", "School"),
             Message(R.drawable.user_8, "Chopper", "I'm Chopper"),
         )
+        List(3) { original }.flatten()
     }
+    val listState = rememberLazyListState()
+    var isOpenIndex by remember { mutableStateOf<Int?>(null) }
+
+    fun closeExpandedItem() {
+        isOpenIndex = null
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            closeExpandedItem()
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
@@ -72,16 +95,36 @@ fun MessageScreen() {
         }
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { if (isOpenIndex != null) closeExpandedItem() },
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item { Spacer(Modifier) }
-            itemsIndexed(messages, key = { index, item -> item.face }) { index, message ->
+            itemsIndexed(
+                messages,
+                key = { index, item -> "${item.face}-${Uuid.random()}" }) { index, message ->
+                var isOpen by remember { mutableStateOf(false) }
                 MessageItem(
                     message = message,
-                    alignment = if (index % 3 == 0) Alignment.Start else Alignment.End
+                    isOpen = isOpenIndex == index && isOpen,
+                    alignment = Alignment.End,
+                    onOpenChange = {
+                        isOpenIndex = if (it) index else null
+                        isOpen = it
+                    },
+                    onClick = {
+                        if (isOpenIndex != null) {
+                            closeExpandedItem()
+                        } else {
+                            // TODO(other click event)
+                        }
+                    }
                 )
             }
         }
@@ -89,13 +132,20 @@ fun MessageScreen() {
 }
 
 @Composable
-private fun MessageItem(message: Message, alignment: Alignment.Horizontal) {
+private fun MessageItem(
+    message: Message, isOpen: Boolean, alignment: Alignment.Horizontal,
+    onOpenChange: (Boolean) -> Unit,
+    onClick: () -> Unit
+) {
     ActionButtonListItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(8.dp)),
+        isOpen = isOpen,
         actionAlignment = alignment,
+        onOpenChange = onOpenChange,
+        onClick = onClick
     ) {
         ListItem(
             modifier = Modifier.clip(RoundedCornerShape(16.dp)),

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
@@ -20,12 +21,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,10 +51,13 @@ private val PaddingSm = 8.dp
 @Composable
 fun ActionButtonListItem(
     modifier: Modifier = Modifier,
+    isOpen: Boolean,
     actionHorizontalSpace: Dp = PaddingSm,
     actionVerticalSpace: Dp = PaddingSm,
     actionAlignment: Alignment.Horizontal = Alignment.End,
     thresholdFraction: Float = 0.15f,
+    onOpenChange: (Boolean) -> Unit,
+    onClick: () -> Unit,
     content: @Composable @UiComposable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -60,10 +66,39 @@ fun ActionButtonListItem(
     val offsetX = remember { Animatable(0f) }
 
     val itemOffsets = remember { mutableStateListOf<Animatable<Float, AnimationVector1D>>() }
-    var isOpen by remember { mutableStateOf(false) }
+//    var isOpen by remember { mutableStateOf(false) }
+    val isItemOpen by rememberUpdatedState(isOpen)
+    LaunchedEffect(isItemOpen) {
+        if (isItemOpen) return@LaunchedEffect
+        offsetX.animateTo(
+            0f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessLow
+            )
+        )
+    }
     Layout(
         content = content,
         modifier = modifier
+            .pointerInput(isItemOpen) {
+                detectTapGestures {
+                    if (isItemOpen) {
+                        scope.launch {
+                            offsetX.animateTo(
+                                0f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            )
+                        }
+                        onOpenChange(false)
+                    }else{
+                        onClick()
+                    }
+                }
+            }
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onHorizontalDrag = { change, dragAmount ->
@@ -114,27 +149,27 @@ fun ActionButtonListItem(
                             val openValue =
                                 if (actionAlignment == Alignment.Start) maxOffsetX else -maxOffsetX
                             val closeValue = 0f
-                            val isOverOpenThreshold = !isOpen && (
+                            val isOverOpenThreshold = !isItemOpen && (
                                     (actionAlignment == Alignment.Start && offsetX.value > openThreshold) ||
                                             (actionAlignment != Alignment.Start && offsetX.value < openThreshold)
                                     )
 
-                            val isOverCloseThreshold = isOpen && (
+                            val isOverCloseThreshold = isItemOpen && (
                                     (actionAlignment == Alignment.Start && offsetX.value < closeThreshold) ||
                                             (actionAlignment != Alignment.Start && offsetX.value > closeThreshold)
                                     )
                             val target = when {
                                 isOverOpenThreshold -> {
-                                    isOpen = true
+                                    onOpenChange(true)
                                     openValue
                                 }
 
                                 isOverCloseThreshold -> {
-                                    isOpen = false
+                                    onOpenChange(false)
                                     closeValue
                                 }
 
-                                else -> if (isOpen) openValue else closeValue
+                                else -> if (isItemOpen) openValue else closeValue
                             }
                             offsetX.animateTo(
                                 target,
@@ -251,10 +286,14 @@ private fun applyDamping(
 @Preview(showBackground = true)
 @Composable
 private fun ActionButtonListItemPreview() {
+    var isOpen by remember { mutableStateOf(false) }
     ActionButtonListItem(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.LightGray)
+            .background(Color.LightGray),
+        isOpen = isOpen,
+        onOpenChange = { isOpen = it },
+        onClick = {}
     ) {
         ListItem(
             headlineContent = { Text(text = "Hello World") }
